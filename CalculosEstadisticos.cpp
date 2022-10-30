@@ -4,9 +4,13 @@
 #include <time.h>
 #include <math.h>
 
+//Biblioteca de hilos
+#include <pthread.h>
+
 //Bibliotecas Graficas
 #include <graphics.h>
 #include <winbgim.h>
+
 
 //Estadisticos
 float Varianza(int tp,int tpFr);
@@ -18,36 +22,37 @@ int Sumatoria();
 //Funciones necesarias (sin retorno)
 void Ordenar();
 void SetArr();
-void GraphicPuntos();
-void GraphicHistograma();
+void *GraphicPuntos(void *nlu);
+void *GraphicHistograma(void *nlu);
 void TallosYHojas();
+
+
 
 //Informacion Global
 int *arr,tm,*tallos;
-int SetCnt=1,*arrSets[2],cnt=0; 
+int SetCnt=1,*arrSets[2],cnt=0;
+
+void *sem(void *args){
+    printf("Tradh simple\n");
+}
 
 int main(int argc, char const *argv[]){
     int rang;
+
+    pthread_t grph1,grph2;    
+
     // Genearador de datos (Temporal para las pruebas de funciones)
     printf("\n\tIngresa la cantidad de datos: ");
     scanf("%d",&tm);
     arr = new int [tm];
     tallos = new int [tm];
 
-    printf("\n\tIngresa el rango (0 to n): ");
-    scanf("%d",&rang);
-
-    srand(time(NULL));
     for (int i = 0; i < tm; i++){
-        //arr[i]=rand()%(rang+1);
         scanf("%d",&arr[i]);
     }
     //Codigo de procesos
+    float timer=clock();
     Ordenar();
-
-    for (int i = 0; i < tm; i++){
-        printf(" %d, ",arr[i]);
-    }
 
     printf("\n\tLa moda es: %d \n",Moda());
     for (int i = 0; i < 2; i++){
@@ -56,10 +61,7 @@ int main(int argc, char const *argv[]){
     
     SetArr();
     printf("\n\tHay %d valores diferentes. \n",SetCnt);
-    for (int i = 0; i < SetCnt; i++){
-        printf("\n\tValor: %d | Frecuency: %d\n",arrSets[0][i],arrSets[1][i]);
-    }
-    
+
     printf("\n\tLa Media es: %.2f \n",Media());
     printf("\n\tLa Mediana es: %.2f \n",Mediana());
 
@@ -67,10 +69,13 @@ int main(int argc, char const *argv[]){
     printf("\n\tLa Varianza es: %.2f \n",varia);
     printf("\n\tLa Desviacion es: %.2f \n",sqrt(varia));
     
-    //TallosYHojas();
-    //GraphicPuntos();
-    GraphicHistograma();
+    TallosYHojas();
+    pthread_create(&grph1, NULL,&GraphicHistograma,NULL);
+    pthread_join(grph1,NULL);
+    pthread_create(&grph2, NULL,&GraphicPuntos,NULL);
+    pthread_join(grph2,NULL);
 
+    //printf("\n\tEl Tiempo de ejecucion fue de: %.3fs. \n",(clock()-timer)/CLOCKS_PER_SEC);
     return 0;
 }
 
@@ -93,7 +98,8 @@ void Ordenar(){
 
 float Media(){
     int sum=Sumatoria();
-    return (float)(sum/tm);
+    float r=(float) sum/tm;
+    return r;
 }
 
 int Sumatoria(){
@@ -190,7 +196,7 @@ float Varianza(int tp,int tpFr){
     return r;
 }
 
-void GraphicPuntos(){
+void *GraphicPuntos(void *nlu){
     int vx,vy;
 	char textostg[20];
 	int texto=0;
@@ -260,7 +266,7 @@ void TallosYHojas(){
 		printf("\n\n");
     }
 }
-void GraphicHistograma(){
+void *GraphicHistograma(void *nlu){
     float max,min,rango,k,am;
 	int inter[2][30];
 	float mc[30];
@@ -272,7 +278,6 @@ void GraphicHistograma(){
 	rango=max-min;
 	k=round(1+(3.322*log10(tm)));
 	am=round(rango/k);
-	//printf("%f---%f---%f---%f---%f",max,min,rango,k,am);
 	inter[0][0]=min;
 	inter[1][0]=min+am;
 	int maxint=-2000; //intervalo con mayor frecuencia 
@@ -300,14 +305,9 @@ void GraphicHistograma(){
 		}	
 	}
 	freca[0]=frec[0];
-	for(int x=1;x<=k;x++)
-	{
+	for(int x=1;x<=k;x++){
 		freca[x]=freca[x-1]+frec[x];
 	}
-	/*for(x=0;x<=k;x++)
-	{
-		printf("%d\n",frec[x]);
-	}*/
 	int vx,vy;
     int orix=50,oriy=650;
 	char textostg[20];
@@ -321,33 +321,26 @@ void GraphicHistograma(){
     
     line(orix,oriy,vx+30,oriy);
     line(orix,oriy,50,vy-20);
-    for (int x=80;x<=vx;x+=30)
-	{
-		int y=(oriy-(frec[fr]*20));
-		//setfillstyle(SOLID_FILL, RED);
-		bar(x-an,y,x+an,oriy);
-		//floodfill(x,y,WHITE);
-		
-		line(x,oriy+5,x,oriy-5);
-		itoa(mc[fr],textostg,10);
-		settextstyle(2,HORIZ_DIR,0);
-		outtextxy(x,oriy+6,textostg);
-		texto+=1;
-		fr+=1;
-	}
-	for(int y=oriy-20;y>=vy;y-=20)
-	{
-		if(textoy%2==0)
-		{
+	for(int y=oriy-20;y>=vy;y-=20){
+		if(textoy%2==0){
 			line(orix,y,vx+30,y);
 		}
 		line(orix-3,y,orix+3,y);
 		itoa(textoy,textostg,10);	
-		settextstyle(2,HORIZ_DIR,0);
-		outtextxy(orix-30,y,textostg);
+		settextstyle(8,HORIZ_DIR,1);
+		outtextxy(orix-28,y-9,textostg);
 		textoy+=1;
-		
-	}	
+	}
+    for (int x=80;x<=vx;x+=30){
+		int y=(oriy-(frec[fr]*20));
+        setfillstyle(SOLID_FILL,RED);
+		bar(x-an,y,x+an,oriy);		
+		line(x,oriy+5,x,oriy-5);
+		itoa(mc[fr],textostg,10);
+		settextstyle(8,HORIZ_DIR,1);
+		outtextxy(x-11,oriy+8,textostg);
+		fr+=1;
+	}
 	getch();
 	closegraph();
 }
